@@ -5,7 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useI18n } from "@/lib/i18n";
 
 export function SearchPanel({ query, myProfileId, onPick, onClose }: {
-  query: string; myProfileId: string; onPick: (chatId: string) => void; onClose: () => void;
+  query: string; myProfileId: string;
+  onPick: (chatId: string, preview?: any) => void; onClose: () => void;
 }) {
   const { t } = useI18n();
   const [results, setResults] = useState<{ users: any[]; groups: any[]; bots: any[] }>({
@@ -19,13 +20,15 @@ export function SearchPanel({ query, myProfileId, onPick, onClose }: {
 
   const pickProfile = async (p: any, isBot: boolean) => {
     const chatId = await findOrCreateDirectChat(myProfileId, p.id, isBot);
-    onPick(chatId);
+    onPick(chatId, {
+      id: chatId, type: isBot ? "bot" : "direct", name: null, avatar_url: null,
+      last_message_at: new Date().toISOString(), other: p, last_text: null,
+    });
   };
   const pickGroup = async (g: any) => {
-    // Join group if not member
     await supabase.from("chat_members").upsert({ chat_id: g.id, profile_id: myProfileId },
       { onConflict: "chat_id,profile_id" });
-    onPick(g.id);
+    onPick(g.id, { ...g, other: null, last_text: null });
   };
 
   const empty = !results.users.length && !results.groups.length && !results.bots.length;

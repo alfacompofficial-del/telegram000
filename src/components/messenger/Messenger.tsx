@@ -64,8 +64,9 @@ export function Messenger() {
           <SearchPanel
             query={search}
             myProfileId={profile.id}
-            onPick={async (chatId) => {
+            onPick={async (chatId, preview) => {
               setSearch("");
+              if (preview) setPendingChat(preview);
               setActiveChatId(chatId);
               await refresh();
             }}
