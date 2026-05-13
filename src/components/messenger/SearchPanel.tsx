@@ -3,6 +3,7 @@ import { searchAll, findOrCreateDirectChat } from "@/lib/chat-api";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 
 export function SearchPanel({ query, myProfileId, onPick, onClose }: {
   query: string; myProfileId: string;
@@ -19,16 +20,24 @@ export function SearchPanel({ query, myProfileId, onPick, onClose }: {
   }, [query]);
 
   const pickProfile = async (p: any, isBot: boolean) => {
-    const chatId = await findOrCreateDirectChat(myProfileId, p.id, isBot);
-    onPick(chatId, {
-      id: chatId, type: isBot ? "bot" : "direct", name: null, avatar_url: null,
-      last_message_at: new Date().toISOString(), other: p, last_text: null,
-    });
+    try {
+      const chatId = await findOrCreateDirectChat(myProfileId, p.id, isBot);
+      onPick(chatId, {
+        id: chatId, type: isBot ? "bot" : "direct", name: null, avatar_url: null,
+        last_message_at: new Date().toISOString(), other: p, last_text: null,
+      });
+    } catch (e: any) {
+      toast.error(e.message ?? "Не удалось открыть чат");
+    }
   };
   const pickGroup = async (g: any) => {
-    await supabase.from("chat_members").upsert({ chat_id: g.id, profile_id: myProfileId },
-      { onConflict: "chat_id,profile_id" });
-    onPick(g.id, { ...g, other: null, last_text: null });
+    try {
+      await supabase.from("chat_members").upsert({ chat_id: g.id, profile_id: myProfileId },
+        { onConflict: "chat_id,profile_id" });
+      onPick(g.id, { ...g, other: null, last_text: null });
+    } catch (e: any) {
+      toast.error(e.message ?? "Не удалось открыть группу");
+    }
   };
 
   const empty = !results.users.length && !results.groups.length && !results.bots.length;
