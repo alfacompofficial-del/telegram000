@@ -39,34 +39,20 @@ export async function loadChatsForProfile(profileId: string): Promise<ChatListIt
 }
 
 export async function findOrCreateDirectChat(myProfileId: string, otherProfileId: string, isBot: boolean): Promise<string> {
-  // Find existing chats where both are members
-  const { data: mine } = await supabase.from("chat_members").select("chat_id").eq("profile_id", myProfileId);
-  const { data: theirs } = await supabase.from("chat_members").select("chat_id").eq("profile_id", otherProfileId);
-  const mineIds = new Set((mine ?? []).map((m: any) => m.chat_id));
-  const shared = (theirs ?? []).map((m: any) => m.chat_id).filter((id: string) => mineIds.has(id));
-  if (shared.length) {
-    const { data: chat } = await supabase.from("chats").select("*")
-      .in("id", shared).in("type", isBot ? ["bot"] : ["direct"]).limit(1).maybeSingle();
-    if (chat) return chat.id;
-  }
-  const { data: created, error } = await supabase.from("chats")
-    .insert({ type: isBot ? "bot" : "direct", created_by: myProfileId })
-    .select().single();
+  const { data: chatId, error } = await (supabase as any).rpc("find_or_create_direct_chat", {
+    _other_profile_id: otherProfileId,
+  });
   if (error) throw error;
-  await supabase.from("chat_members").insert([
-    { chat_id: created.id, profile_id: myProfileId },
-    { chat_id: created.id, profile_id: otherProfileId },
-  ]);
-  return created.id;
+  return chatId;
 }
 
 export async function createGroupChat(myProfileId: string, name: string, memberIds: string[]) {
-  const { data: chat, error } = await supabase.from("chats")
-    .insert({ type: "group", name, created_by: myProfileId }).select().single();
+  const { data: chatId, error } = await (supabase as any).rpc("create_group_chat", {
+    _name: name,
+    _member_ids: memberIds,
+  });
   if (error) throw error;
-  const all = Array.from(new Set([myProfileId, ...memberIds]));
-  await supabase.from("chat_members").insert(all.map((pid) => ({ chat_id: chat.id, profile_id: pid })));
-  return chat.id;
+  return chatId;
 }
 
 export async function searchAll(query: string) {
