@@ -38,7 +38,7 @@ export async function loadChatsForProfile(profileId: string): Promise<ChatListIt
   return result;
 }
 
-export async function findOrCreateDirectChat(myProfileId: string, otherProfileId: string, isBot: boolean): Promise<string> {
+export async function findOrCreateDirectChat(_myProfileId: string, otherProfileId: string, _isBot: boolean): Promise<string> {
   const { data: chatId, error } = await (supabase as any).rpc("find_or_create_direct_chat", {
     _other_profile_id: otherProfileId,
   });
@@ -46,7 +46,7 @@ export async function findOrCreateDirectChat(myProfileId: string, otherProfileId
   return chatId;
 }
 
-export async function createGroupChat(myProfileId: string, name: string, memberIds: string[]) {
+export async function createGroupChat(_myProfileId: string, name: string, memberIds: string[]) {
   const { data: chatId, error } = await (supabase as any).rpc("create_group_chat", {
     _name: name,
     _member_ids: memberIds,
