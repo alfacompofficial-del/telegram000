@@ -19,9 +19,10 @@ const getState = (id: string): State => stateMap.get(id) ?? { step: "idle" };
 const setState = (id: string, s: State) => stateMap.set(id, s);
 
 async function botSay(chatId: string, botId: string, text: string) {
-  await supabase.from("messages").insert({
-    chat_id: chatId, sender_id: botId, content: text, type: "text",
+  const { error } = await supabase.rpc("send_bot_message", {
+    _chat_id: chatId, _bot_id: botId, _content: text, _type: "text",
   });
+  if (error) console.error("botSay failed", error);
 }
 
 function genToken() {
