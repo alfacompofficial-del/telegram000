@@ -225,6 +225,15 @@ export type Database = {
     Functions: {
       get_email_by_username: { Args: { _username: string }; Returns: string }
       is_chat_member: { Args: { _chat_id: string }; Returns: boolean }
+      send_bot_message: {
+        Args: {
+          _bot_id: string
+          _chat_id: string
+          _content: string
+          _type?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

@@ -38,7 +38,12 @@ export function Messenger() {
     return () => { supabase.removeChannel(ch); };
   }, [profile?.id]);
 
-  const activeChat = useMemo(() => chats.find((c) => c.id === activeChatId) ?? null, [chats, activeChatId]);
+  const [pendingChat, setPendingChat] = useState<ChatListItem | null>(null);
+  const activeChat = useMemo(
+    () => chats.find((c) => c.id === activeChatId)
+       ?? (pendingChat?.id === activeChatId ? pendingChat : null),
+    [chats, activeChatId, pendingChat],
+  );
 
   if (!profile) return null;
 
@@ -59,8 +64,9 @@ export function Messenger() {
           <SearchPanel
             query={search}
             myProfileId={profile.id}
-            onPick={async (chatId) => {
+            onPick={async (chatId, preview) => {
               setSearch("");
+              if (preview) setPendingChat(preview);
               setActiveChatId(chatId);
               await refresh();
             }}
