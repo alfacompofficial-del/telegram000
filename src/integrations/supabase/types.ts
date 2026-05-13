@@ -223,6 +223,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_group_chat: {
+        Args: { _member_ids?: string[]; _name: string }
+        Returns: string
+      }
+      find_or_create_direct_chat: {
+        Args: { _other_profile_id: string }
+        Returns: string
+      }
       get_email_by_username: { Args: { _username: string }; Returns: string }
       is_chat_member: { Args: { _chat_id: string }; Returns: boolean }
       send_bot_message: {
