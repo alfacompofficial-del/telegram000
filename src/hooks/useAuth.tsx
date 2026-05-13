@@ -19,21 +19,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
+    const { data, error } = await supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
+    if (error) {
+      console.error("loadProfile failed", error);
+      setProfile(null);
+      return;
+    }
     setProfile(data as Profile | null);
   };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s?.user) setTimeout(() => loadProfile(s.user.id), 0);
-      else setProfile(null);
+      if (s?.user) {
+        setLoading(true);
+        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       if (s?.user) loadProfile(s.user.id).finally(() => setLoading(false));
       else setLoading(false);
-    });
+    }).catch(() => setLoading(false));
     return () => subscription.unsubscribe();
   }, []);
 
