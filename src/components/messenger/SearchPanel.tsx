@@ -32,7 +32,7 @@ export function SearchPanel({ query, myProfileId, onPick, onClose }: {
   const pickGroup = async (g: any) => {
     try {
       const chatId = await joinGroupChat(g.id);
-      onPick(g.id, { ...g, other: null, last_text: null });
+      onPick(chatId, { ...g, id: chatId, other: null, last_text: null });
     } catch (e: any) {
       toast.error(e.message ?? "Не удалось открыть группу");
     }
