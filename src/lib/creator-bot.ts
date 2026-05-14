@@ -161,7 +161,7 @@ export async function handleCreatorBotMessage(opts: {
   }
 
   if (cmd === "/mybots") {
-    const { data: bots } = await supabase.from("profiles").select("*").eq("bot_owner_id", ownerProfileId);
+    const bots = await listOwnedBots();
     if (!bots?.length) { await botSay(chatId, botId, `У вас пока нет ботов. Создайте: /newbot`); return; }
     const list = bots.map((b: any) => `• ${b.display_name} (@${b.username})`).join("\n");
     await botSay(chatId, botId, `Ваши боты (${bots.length}/5):\n\n${list}`);
@@ -169,7 +169,7 @@ export async function handleCreatorBotMessage(opts: {
   }
 
   if (cmd === "/deletebot" || cmd === "/revoketoken" || cmd === "/setcommand" || cmd === "/getlink") {
-    const { data: bots } = await supabase.from("profiles").select("*").eq("bot_owner_id", ownerProfileId);
+    const bots = await listOwnedBots();
     if (!bots?.length) { await botSay(chatId, botId, `У вас нет ботов. Создайте: /newbot`); return; }
     const list = bots.map((b: any) => `@${b.username}`).join(", ");
     if (cmd === "/deletebot") {
