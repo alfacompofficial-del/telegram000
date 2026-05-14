@@ -33,13 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const rawUsername = String(authUser.user_metadata?.username ?? authUser.email?.split("@")[0] ?? `user_${uid.slice(0, 8)}`);
     const username = rawUsername.replace(/^@/, "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 20) || `user_${uid.slice(0, 8)}`;
-    const { data: created, error: createError } = await supabase.from("profiles").upsert({
+    const baseProfile = {
       user_id: uid,
       username,
       display_name: String(authUser.user_metadata?.display_name ?? username),
       email: authUser.email,
       is_bot: false,
-    }, { onConflict: "user_id" }).select("*").single();
+    };
+    const { data: created, error: createError } = await supabase.from("profiles").upsert(baseProfile, { onConflict: "user_id" }).select("*").single();
+    if (createError?.code === "23505") {
+      const fallbackUsername = `${username}_${uid.slice(0, 6)}`.slice(0, 20);
+      const { data: fallback, error: fallbackError } = await supabase.from("profiles").upsert({
+        ...baseProfile,
+        username: fallbackUsername,
+        display_name: String(authUser.user_metadata?.display_name ?? fallbackUsername),
+      }, { onConflict: "user_id" }).select("*").single();
+      if (!fallbackError) {
+        setProfile(fallback as Profile);
+        return;
+      }
+    }
     if (createError) {
       console.error("createProfile failed", createError);
       setProfile(null);
