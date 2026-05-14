@@ -6,6 +6,7 @@ import { MessageInput } from "./MessageInput";
 import type { ChatListItem } from "@/lib/chat-api";
 import type { Profile } from "@/hooks/useAuth";
 import { handleCreatorBotMessage } from "@/lib/creator-bot";
+import { toast } from "sonner";
 
 export type Message = {
   id: string; chat_id: string; sender_id: string; content: string | null;
@@ -21,7 +22,7 @@ export function ChatView({ chat, myProfile, onChanged }: {
   const [botCommands, setBotCommands] = useState<{ command: string; description: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const otherIsCreatorBot = chat.other?.username === "CreatorBot";
+  const otherIsCreatorBot = chat.other?.username?.toLowerCase() === "creatorbot";
   const otherIsBot = chat.other?.is_bot;
 
   useEffect(() => {
@@ -68,9 +69,13 @@ export function ChatView({ chat, myProfile, onChanged }: {
   }, [messages.length]);
 
   const send = async (payload: Partial<Message>) => {
-    await supabase.from("messages").insert({
+    const { error } = await supabase.from("messages").insert({
       chat_id: chat.id, sender_id: myProfile.id, ...payload,
     });
+    if (error) {
+      toast.error(error.message ?? "Не удалось отправить сообщение");
+      return;
+    }
     onChanged();
     if (otherIsCreatorBot && chat.other && payload.type === "text" && payload.content) {
       await handleCreatorBotMessage({

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { searchAll, findOrCreateDirectChat } from "@/lib/chat-api";
-import { supabase } from "@/integrations/supabase/client";
+import { searchAll, findOrCreateDirectChat, joinGroupChat } from "@/lib/chat-api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
@@ -32,9 +31,8 @@ export function SearchPanel({ query, myProfileId, onPick, onClose }: {
   };
   const pickGroup = async (g: any) => {
     try {
-      await supabase.from("chat_members").upsert({ chat_id: g.id, profile_id: myProfileId },
-        { onConflict: "chat_id,profile_id" });
-      onPick(g.id, { ...g, other: null, last_text: null });
+      const chatId = await joinGroupChat(g.id);
+      onPick(chatId, { ...g, id: chatId, other: null, last_text: null });
     } catch (e: any) {
       toast.error(e.message ?? "Не удалось открыть группу");
     }

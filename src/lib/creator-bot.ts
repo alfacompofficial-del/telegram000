@@ -32,6 +32,12 @@ function genToken() {
   return `${num}:${rand}`;
 }
 
+async function listOwnedBots() {
+  const { data, error } = await (supabase as any).rpc("creator_list_bots");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function handleCreatorBotMessage(opts: {
   chatId: string; botId: string; ownerProfileId: string; text: string;
 }) {
@@ -51,32 +57,20 @@ export async function handleCreatorBotMessage(opts: {
       await botSay(chatId, botId, `❌ Неверный формат. Никнейм должен заканчиваться на **bot**, 3–32 символа (латиница/цифры/_).`);
       return;
     }
-    // Limit 5 bots
-    const { count } = await supabase.from("profiles").select("*", { count: "exact", head: true })
-      .eq("bot_owner_id", ownerProfileId);
-    if ((count ?? 0) >= 5) {
-      setState(ownerProfileId, { step: "idle" });
-      await botSay(chatId, botId, `❌ Лимит: один пользователь может создать не более 5 ботов.`);
-      return;
-    }
-    const { data: exists } = await supabase.from("profiles").select("id").eq("username", uname).maybeSingle();
-    if (exists) {
-      await botSay(chatId, botId, `❌ Этот никнейм уже занят. Попробуйте другой.`);
-      return;
-    }
-    const token = genToken();
-    const { data: bot, error } = await supabase.from("profiles").insert({
-      username: uname, display_name: state.name, is_bot: true,
-      bot_owner_id: ownerProfileId, bot_token: token,
-    }).select().single();
+    const { data: created, error } = await (supabase as any).rpc("creator_create_bot", {
+      _display_name: state.name,
+      _username: uname,
+    });
     setState(ownerProfileId, { step: "idle" });
     if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
+    const bot = Array.isArray(created) ? created[0] : created;
+    const token = bot?.token ?? genToken();
     await botSay(chatId, botId,
 `✅ Готово! Бот создан.
 
 Имя: ${state.name}
-Ник: @${uname}
-Ссылка: t.me/${uname} (внутри приложения откройте поиском «@${uname}»)
+Ник: @${bot?.username ?? uname}
+Ссылка: t.me/${bot?.username ?? uname} (внутри приложения откройте поиском «@${bot?.username ?? uname}»)
 
 🔑 API-токен:
 \`${token}\`
@@ -89,7 +83,8 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    await supabase.from("profiles").delete().eq("id", target.id);
+    const { error } = await (supabase as any).rpc("creator_delete_bot", { _bot_id: target.id });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🗑️ Бот @${target.username} удалён.`);
     return;
   }
@@ -98,8 +93,8 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    const newToken = genToken();
-    await supabase.from("profiles").update({ bot_token: newToken }).eq("id", target.id);
+    const { data: newToken, error } = await (supabase as any).rpc("creator_revoke_bot_token", { _bot_id: target.id });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔄 Новый токен для @${target.username}:\n\n\`${newToken}\``);
     return;
   }
@@ -118,10 +113,13 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "setcommand_desc") {
-    await supabase.from("bot_commands").upsert({
-      bot_id: state.botId, command: state.command, description: cmd,
-    }, { onConflict: "bot_id,command" });
+    const { error } = await (supabase as any).rpc("creator_set_bot_command", {
+      _bot_id: state.botId,
+      _command: state.command,
+      _description: cmd,
+    });
     setState(ownerProfileId, { step: "idle" });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `✅ Команда ${state.command} установлена.`);
     return;
   }
@@ -134,8 +132,9 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "getlink_link") {
-    await supabase.from("profiles").update({ bot_link: cmd }).eq("id", state.botId);
+    const { error } = await (supabase as any).rpc("creator_set_bot_link", { _bot_id: state.botId, _link: cmd });
     setState(ownerProfileId, { step: "idle" });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔗 Ссылка прикреплена.`);
     return;
   }
@@ -162,7 +161,7 @@ export async function handleCreatorBotMessage(opts: {
   }
 
   if (cmd === "/mybots") {
-    const { data: bots } = await supabase.from("profiles").select("*").eq("bot_owner_id", ownerProfileId);
+    const bots = await listOwnedBots();
     if (!bots?.length) { await botSay(chatId, botId, `У вас пока нет ботов. Создайте: /newbot`); return; }
     const list = bots.map((b: any) => `• ${b.display_name} (@${b.username})`).join("\n");
     await botSay(chatId, botId, `Ваши боты (${bots.length}/5):\n\n${list}`);
@@ -170,7 +169,7 @@ export async function handleCreatorBotMessage(opts: {
   }
 
   if (cmd === "/deletebot" || cmd === "/revoketoken" || cmd === "/setcommand" || cmd === "/getlink") {
-    const { data: bots } = await supabase.from("profiles").select("*").eq("bot_owner_id", ownerProfileId);
+    const bots = await listOwnedBots();
     if (!bots?.length) { await botSay(chatId, botId, `У вас нет ботов. Создайте: /newbot`); return; }
     const list = bots.map((b: any) => `@${b.username}`).join(", ");
     if (cmd === "/deletebot") {

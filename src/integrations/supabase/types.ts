@@ -227,12 +227,40 @@ export type Database = {
         Args: { _member_ids?: string[]; _name: string }
         Returns: string
       }
+      creator_create_bot: {
+        Args: { _display_name: string; _username: string }
+        Returns: {
+          display_name: string
+          id: string
+          token: string
+          username: string
+        }[]
+      }
+      creator_delete_bot: { Args: { _bot_id: string }; Returns: undefined }
+      creator_list_bots: {
+        Args: never
+        Returns: {
+          display_name: string
+          id: string
+          username: string
+        }[]
+      }
+      creator_revoke_bot_token: { Args: { _bot_id: string }; Returns: string }
+      creator_set_bot_command: {
+        Args: { _bot_id: string; _command: string; _description: string }
+        Returns: undefined
+      }
+      creator_set_bot_link: {
+        Args: { _bot_id: string; _link: string }
+        Returns: undefined
+      }
       find_or_create_direct_chat: {
         Args: { _other_profile_id: string }
         Returns: string
       }
       get_email_by_username: { Args: { _username: string }; Returns: string }
       is_chat_member: { Args: { _chat_id: string }; Returns: boolean }
+      join_group_chat: { Args: { _chat_id: string }; Returns: string }
       send_bot_message: {
         Args: {
           _bot_id: string

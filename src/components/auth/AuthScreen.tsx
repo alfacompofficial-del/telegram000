@@ -27,7 +27,7 @@ export function AuthScreen() {
           toast.error("Никнейм: 3-20 символов, латиница/цифры/_");
           return;
         }
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
@@ -35,6 +35,16 @@ export function AuthScreen() {
           },
         });
         if (error) throw error;
+        if (data.session?.user) {
+          const { error: profileError } = await supabase.from("profiles").upsert({
+            user_id: data.session.user.id,
+            username: clean,
+            display_name: clean,
+            email,
+            is_bot: false,
+          }, { onConflict: "user_id" });
+          if (profileError) throw profileError;
+        }
         toast.success("Аккаунт создан!");
       } else {
         const clean = username.replace(/^@/, "").trim();
