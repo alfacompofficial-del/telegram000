@@ -83,7 +83,8 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    await supabase.from("profiles").delete().eq("id", target.id);
+    const { error } = await supabase.rpc("creator_delete_bot", { _bot_id: target.id });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🗑️ Бот @${target.username} удалён.`);
     return;
   }
@@ -92,8 +93,8 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    const newToken = genToken();
-    await supabase.from("profiles").update({ bot_token: newToken }).eq("id", target.id);
+    const { data: newToken, error } = await supabase.rpc("creator_revoke_bot_token", { _bot_id: target.id });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔄 Новый токен для @${target.username}:\n\n\`${newToken}\``);
     return;
   }
@@ -112,10 +113,13 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "setcommand_desc") {
-    await supabase.from("bot_commands").upsert({
-      bot_id: state.botId, command: state.command, description: cmd,
-    }, { onConflict: "bot_id,command" });
+    const { error } = await supabase.rpc("creator_set_bot_command", {
+      _bot_id: state.botId,
+      _command: state.command,
+      _description: cmd,
+    });
     setState(ownerProfileId, { step: "idle" });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `✅ Команда ${state.command} установлена.`);
     return;
   }
@@ -128,8 +132,9 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "getlink_link") {
-    await supabase.from("profiles").update({ bot_link: cmd }).eq("id", state.botId);
+    const { error } = await supabase.rpc("creator_set_bot_link", { _bot_id: state.botId, _link: cmd });
     setState(ownerProfileId, { step: "idle" });
+    if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔗 Ссылка прикреплена.`);
     return;
   }
