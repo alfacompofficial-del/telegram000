@@ -33,7 +33,7 @@ function genToken() {
 }
 
 async function listOwnedBots() {
-  const { data, error } = await supabase.rpc("creator_list_bots");
+  const { data, error } = await (supabase as any).rpc("creator_list_bots");
   if (error) throw error;
   return data ?? [];
 }
@@ -57,7 +57,7 @@ export async function handleCreatorBotMessage(opts: {
       await botSay(chatId, botId, `❌ Неверный формат. Никнейм должен заканчиваться на **bot**, 3–32 символа (латиница/цифры/_).`);
       return;
     }
-    const { data: created, error } = await supabase.rpc("creator_create_bot", {
+    const { data: created, error } = await (supabase as any).rpc("creator_create_bot", {
       _display_name: state.name,
       _username: uname,
     });
@@ -83,7 +83,7 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    const { error } = await supabase.rpc("creator_delete_bot", { _bot_id: target.id });
+    const { error } = await (supabase as any).rpc("creator_delete_bot", { _bot_id: target.id });
     if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🗑️ Бот @${target.username} удалён.`);
     return;
@@ -93,7 +93,7 @@ export async function handleCreatorBotMessage(opts: {
     const target = state.bots.find((b) => b.username.toLowerCase() === cmd.replace(/^@/, "").toLowerCase());
     setState(ownerProfileId, { step: "idle" });
     if (!target) { await botSay(chatId, botId, `Бот не найден.`); return; }
-    const { data: newToken, error } = await supabase.rpc("creator_revoke_bot_token", { _bot_id: target.id });
+    const { data: newToken, error } = await (supabase as any).rpc("creator_revoke_bot_token", { _bot_id: target.id });
     if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔄 Новый токен для @${target.username}:\n\n\`${newToken}\``);
     return;
@@ -113,7 +113,7 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "setcommand_desc") {
-    const { error } = await supabase.rpc("creator_set_bot_command", {
+    const { error } = await (supabase as any).rpc("creator_set_bot_command", {
       _bot_id: state.botId,
       _command: state.command,
       _description: cmd,
@@ -132,7 +132,7 @@ export async function handleCreatorBotMessage(opts: {
     return;
   }
   if (state.step === "getlink_link") {
-    const { error } = await supabase.rpc("creator_set_bot_link", { _bot_id: state.botId, _link: cmd });
+    const { error } = await (supabase as any).rpc("creator_set_bot_link", { _bot_id: state.botId, _link: cmd });
     setState(ownerProfileId, { step: "idle" });
     if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
     await botSay(chatId, botId, `🔗 Ссылка прикреплена.`);
