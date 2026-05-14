@@ -18,14 +18,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (uid: string) => {
+  const loadProfile = async (authUser: User) => {
+    const uid = authUser.id;
     const { data, error } = await supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
     if (error) {
       console.error("loadProfile failed", error);
       setProfile(null);
       return;
     }
-    setProfile(data as Profile | null);
+    if (data) {
+      setProfile(data as Profile);
+      return;
+    }
+
+    const rawUsername = String(authUser.user_metadata?.username ?? authUser.email?.split("@")[0] ?? `user_${uid.slice(0, 8)}`);
+    const username = rawUsername.replace(/^@/, "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 20) || `user_${uid.slice(0, 8)}`;
+    const { data: created, error: createError } = await supabase.from("profiles").upsert({
+      user_id: uid,
+      username,
+      display_name: String(authUser.user_metadata?.display_name ?? username),
+      email: authUser.email,
+      is_bot: false,
+    }, { onConflict: "user_id" }).select("*").single();
+    if (createError) {
+      console.error("createProfile failed", createError);
+      setProfile(null);
+      return;
+    }
+    setProfile(created as Profile);
   };
 
   useEffect(() => {
@@ -33,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       if (s?.user) {
         setLoading(true);
-        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
+        setTimeout(() => loadProfile(s.user).finally(() => setLoading(false)), 0);
       } else {
         setProfile(null);
         setLoading(false);
@@ -41,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
-      if (s?.user) loadProfile(s.user.id).finally(() => setLoading(false));
+      if (s?.user) loadProfile(s.user).finally(() => setLoading(false));
       else setLoading(false);
     }).catch(() => setLoading(false));
     return () => subscription.unsubscribe();
@@ -50,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{
       user: session?.user ?? null, session, profile, loading,
-      refreshProfile: async () => { if (session?.user) await loadProfile(session.user.id); },
+      refreshProfile: async () => { if (session?.user) await loadProfile(session.user); },
     }}>{children}</Ctx.Provider>
   );
 }
