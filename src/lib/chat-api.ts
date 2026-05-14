@@ -55,18 +55,26 @@ export async function createGroupChat(_myProfileId: string, name: string, member
   return chatId;
 }
 
+export async function joinGroupChat(chatId: string): Promise<string> {
+  const { data, error } = await (supabase as any).rpc("join_group_chat", {
+    _chat_id: chatId,
+  });
+  if (error) throw error;
+  return data ?? chatId;
+}
+
 export async function searchAll(query: string) {
   const q = query.trim();
   if (!q) return { users: [], groups: [], bots: [] };
   const isAt = q.startsWith("@");
   const term = q.replace(/^@/, "");
-  const { data: profiles } = await supabase.from("profiles").select("*")
+  const { data: profiles } = await supabase.from("profiles").select("id,username,display_name,avatar_url,is_bot")
     .ilike("username", `%${term}%`).limit(20);
   const users = (profiles ?? []).filter((p: any) => !p.is_bot);
   const bots = (profiles ?? []).filter((p: any) => p.is_bot && p.username.toLowerCase().endsWith("bot"));
   let groups: any[] = [];
   if (!isAt) {
-    const { data: g } = await supabase.from("chats").select("*")
+    const { data: g } = await supabase.from("chats").select("id,type,name,avatar_url,last_message_at,created_at")
       .eq("type", "group").ilike("name", `%${q}%`).limit(20);
     groups = g ?? [];
   }
