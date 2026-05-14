@@ -32,6 +32,12 @@ function genToken() {
   return `${num}:${rand}`;
 }
 
+async function listOwnedBots() {
+  const { data, error } = await supabase.rpc("creator_list_bots");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function handleCreatorBotMessage(opts: {
   chatId: string; botId: string; ownerProfileId: string; text: string;
 }) {
@@ -51,32 +57,20 @@ export async function handleCreatorBotMessage(opts: {
       await botSay(chatId, botId, `❌ Неверный формат. Никнейм должен заканчиваться на **bot**, 3–32 символа (латиница/цифры/_).`);
       return;
     }
-    // Limit 5 bots
-    const { count } = await supabase.from("profiles").select("*", { count: "exact", head: true })
-      .eq("bot_owner_id", ownerProfileId);
-    if ((count ?? 0) >= 5) {
-      setState(ownerProfileId, { step: "idle" });
-      await botSay(chatId, botId, `❌ Лимит: один пользователь может создать не более 5 ботов.`);
-      return;
-    }
-    const { data: exists } = await supabase.from("profiles").select("id").eq("username", uname).maybeSingle();
-    if (exists) {
-      await botSay(chatId, botId, `❌ Этот никнейм уже занят. Попробуйте другой.`);
-      return;
-    }
-    const token = genToken();
-    const { data: bot, error } = await supabase.from("profiles").insert({
-      username: uname, display_name: state.name, is_bot: true,
-      bot_owner_id: ownerProfileId, bot_token: token,
-    }).select().single();
+    const { data: created, error } = await supabase.rpc("creator_create_bot", {
+      _display_name: state.name,
+      _username: uname,
+    });
     setState(ownerProfileId, { step: "idle" });
     if (error) { await botSay(chatId, botId, `❌ Ошибка: ${error.message}`); return; }
+    const bot = Array.isArray(created) ? created[0] : created;
+    const token = bot?.token ?? genToken();
     await botSay(chatId, botId,
 `✅ Готово! Бот создан.
 
 Имя: ${state.name}
-Ник: @${uname}
-Ссылка: t.me/${uname} (внутри приложения откройте поиском «@${uname}»)
+Ник: @${bot?.username ?? uname}
+Ссылка: t.me/${bot?.username ?? uname} (внутри приложения откройте поиском «@${bot?.username ?? uname}»)
 
 🔑 API-токен:
 \`${token}\`
